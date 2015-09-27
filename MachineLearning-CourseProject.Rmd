@@ -56,18 +56,19 @@ sort(measurementNames[sumVars])
 ```
 
 Because the test set does not contain summarized measurements, therefore we cannot include summarized measurements in buildig prediction model
-```{r, warning=FALSE, cache=TRUE}
-training <- training[training$new_window=="yes",c("classe", "user_name", measurementNames[-sumVars])]
-#training <- training[training$new_window=="yes",c("classe", measurementNames[-sumVars])]
+```{r, warning=FALSE, cache=FALSE}
+training <- training[,c("classe", "user_name", measurementNames[-sumVars])]
+#training <- training[,c("classe", measurementNames[-sumVars])]
 #Remove any column containing at least one NA value
 training <- training[,colSums(is.na(training))<1]
 training$classe <- factor(training$classe)
+dim(training)
 ```
 
 #Build prediction model
 
 Split training data set into training & testing sets
-```{r, warning=FALSE, cache=TRUE}
+```{r, warning=FALSE, cache=FALSE}
 library(caret)
 set.seed(543)
 inTrain <- createDataPartition(y=training$classe, p=0.8, list=FALSE)
@@ -79,64 +80,59 @@ dim(training)
 
 ## Prediction Tree
 Model training
-```{r, warning=FALSE, cache=TRUE}
+```{r, warning=FALSE, cache=FALSE}
 treeModel <- train(classe ~ ., data=training, method="rpart")
 library(rattle)
 fancyRpartPlot(treeModel$finalModel)
 ```
 
 Model Validation
-```{r, warning=FALSE, cache=TRUE}
+```{r, warning=FALSE, cache=FALSE}
 trainingPredict <- predict(treeModel, training)
 print(confusionMatrix(trainingPredict, training$classe))
 ```
 
 Cross validation
-```{r, warning=FALSE, cache=TRUE}
+```{r, warning=FALSE, cache=FALSE}
 testingPredict <- predict(treeModel, testing)
 print(confusionMatrix(testingPredict, testing$classe))
 ```
 
-Cross validation accuracy of prediction tree model is 55.13% meaning error rate is 44.87% which is too high.
+Cross validation accuracy of prediction tree model is 49.71% meaning error rate is 50.29% which is too high.
 
-## Random Forest Model
+##Random Forest Model
 Model training
-```{r, warning=FALSE, cache=TRUE}
-rfModel <- train(classe ~ ., data=training, method="rf")
+```{r, warning=FALSE, cache=FALSE}
+library(randomForest)
+rfModel <- randomForest(classe ~ ., data = training, importance = TRUE, ntrees = 10)
 summary(rfModel)
 ```
 
 Model Validation
-```{r, warning=FALSE, cache=TRUE}
+```{r, warning=FALSE, cache=FALSE}
 trainingPredict <- predict(rfModel, training)
 print(confusionMatrix(trainingPredict, training$classe))
 ```
 
 Cross validation
-```{r, warning=FALSE, cache=TRUE}
+```{r, warning=FALSE, cache=FALSE}
 testingPredict <- predict(rfModel, testing)
 print(confusionMatrix(testingPredict, testing$classe))
 ```
 
-Cross validation accuracy of prediction tree model is 75.64% meaning error rate is 24.36% which is still too high.
+Cross validation accuracy of prediction tree model is 99.54% meaning error rate is 0.46% which is still too high.
 
-## Prediction Tree with pre-process
-Model training
-```{r, warning=FALSE, cache=TRUE}
-treePCModel <- train(classe ~ ., data=training, method="rpart", preProcess="pca")
-fancyRpartPlot(treePCModel$finalModel)
+#Out of sample error
+The highest accuracy in this report is based on prediction algorithm of Random Forest Model, its out of sample error is estimated as XXX% 
+
+#Prediction for 20 test cases
+```{r, warning=FALSE, cache=FALSE}
+pml_write_files <- function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+pml_write_files(predict(rfModel, validation))
 ```
-
-Model Validation
-```{r, warning=FALSE, cache=TRUE}
-trainingPredict <- predict(treePCModel, training)
-print(confusionMatrix(trainingPredict, training$classe))
-```
-
-Cross validation
-```{r, warning=FALSE, cache=TRUE}
-testingPredict <- predict(treePCModel, testing)
-print(confusionMatrix(testingPredict, testing$classe))
-```
-
-Cross validation accuracy of prediction tree model is 55.13% meaning error rate is 44.87% which is too high.
