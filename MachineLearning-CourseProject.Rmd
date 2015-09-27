@@ -1,0 +1,142 @@
+---
+title: "Machine Learning - Course Project"
+author: "Hoang Anh Tuan"
+date: "Sunday, September 27, 2015"
+output: html_document
+---
+
+#Introduction
+This article is a report for the course project of Practical Machine Learning course on Coursera.
+
+The purpose of this course project is to:
+
+* Build a prediction model to predict "classe" variable within [Weight Lifting Exercise Dataset](http://groupware.les.inf.puc-rio.br/har)
+* Report cross validation results
+* Report the expected out of sample error
+* Apply the prediction model to predict 20 different test cases 
+
+#Weight Lifting Exercise Dataset
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+#Preprocessing
+
+Data loading
+```{r, warning=FALSE, cache=TRUE}
+setwd("D:/Projects/training/DataScience Specilization Certificate/08.MachineLearning/CourseProject")
+training <- read.csv("pml-training.csv", na.strings=c("NA","#DIV/0!"))
+validation <- read.csv("pml-testing.csv", na.strings=c("NA","#DIV/0!"))
+varNames <- names(training)
+commonVars <- "X|user_name|raw_timestamp_part_1|raw_timestamp_part_2|cvtd_timestamp|new_window|classe"
+```
+
+According to observation, common variables include:
+
+* X: measurement order
+* user_name: User Names (there are 6 users)
+* raw_timestamp_part_1: timestamp part 1
+* raw_timestamp_part_2: timestamp part 2
+* cvtd_timestamp: Formatted Datetime
+* new_window: Mark the last measurement of an activity, when this variable is set to "yes", summarized varialbes (mentioned below) will be included
+* num_window: Number of Windows
+* classe: Kind of exercise
+
+The remaining variables are measurements; There are 2 types of measurements:
+
+* Instance measurements
+```{r, warning=FALSE, cache=TRUE}
+commonVars <- grep("X|user_name|raw_timestamp_part_1|raw_timestamp_part_2|cvtd_timestamp|new_window|num_window|classe", varNames)
+measurementNames <- varNames[-commonVars]
+sumVars <- grep("amplitude_.*|avg_.*|kurtosis_.*|max_.*|min_.*|skewness_.*|stddev_.*|var_.*", measurementNames)
+sort(measurementNames[-sumVars])
+```
+* Summarized measurements: is included in data set only when new_window = "yes"
+```{r, warning=FALSE, cache=TRUE}
+sort(measurementNames[sumVars])
+```
+
+Because the test set does not contain summarized measurements, therefore we cannot include summarized measurements in buildig prediction model
+```{r, warning=FALSE, cache=TRUE}
+training <- training[training$new_window=="yes",c("classe", "user_name", measurementNames[-sumVars])]
+#training <- training[training$new_window=="yes",c("classe", measurementNames[-sumVars])]
+#Remove any column containing at least one NA value
+training <- training[,colSums(is.na(training))<1]
+training$classe <- factor(training$classe)
+```
+
+#Build prediction model
+
+Split training data set into training & testing sets
+```{r, warning=FALSE, cache=TRUE}
+library(caret)
+set.seed(543)
+inTrain <- createDataPartition(y=training$classe, p=0.8, list=FALSE)
+testing <- training[-inTrain,]
+dim(testing)
+training <- training[inTrain,]
+dim(training)
+```
+
+## Prediction Tree
+Model training
+```{r, warning=FALSE, cache=TRUE}
+treeModel <- train(classe ~ ., data=training, method="rpart")
+library(rattle)
+fancyRpartPlot(treeModel$finalModel)
+```
+
+Model Validation
+```{r, warning=FALSE, cache=TRUE}
+trainingPredict <- predict(treeModel, training)
+print(confusionMatrix(trainingPredict, training$classe))
+```
+
+Cross validation
+```{r, warning=FALSE, cache=TRUE}
+testingPredict <- predict(treeModel, testing)
+print(confusionMatrix(testingPredict, testing$classe))
+```
+
+Cross validation accuracy of prediction tree model is 55.13% meaning error rate is 44.87% which is too high.
+
+## Random Forest Model
+Model training
+```{r, warning=FALSE, cache=TRUE}
+rfModel <- train(classe ~ ., data=training, method="rf")
+summary(rfModel)
+```
+
+Model Validation
+```{r, warning=FALSE, cache=TRUE}
+trainingPredict <- predict(rfModel, training)
+print(confusionMatrix(trainingPredict, training$classe))
+```
+
+Cross validation
+```{r, warning=FALSE, cache=TRUE}
+testingPredict <- predict(rfModel, testing)
+print(confusionMatrix(testingPredict, testing$classe))
+```
+
+Cross validation accuracy of prediction tree model is 75.64% meaning error rate is 24.36% which is still too high.
+
+## Prediction Tree with pre-process
+Model training
+```{r, warning=FALSE, cache=TRUE}
+treePCModel <- train(classe ~ ., data=training, method="rpart", preProcess="pca")
+fancyRpartPlot(treePCModel$finalModel)
+```
+
+Model Validation
+```{r, warning=FALSE, cache=TRUE}
+trainingPredict <- predict(treePCModel, training)
+print(confusionMatrix(trainingPredict, training$classe))
+```
+
+Cross validation
+```{r, warning=FALSE, cache=TRUE}
+testingPredict <- predict(treePCModel, testing)
+print(confusionMatrix(testingPredict, testing$classe))
+```
+
+Cross validation accuracy of prediction tree model is 55.13% meaning error rate is 44.87% which is too high.
