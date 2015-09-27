@@ -22,7 +22,9 @@ More information is available from the website here: http://groupware.les.inf.pu
 #Preprocessing
 
 Data loading
-```{r, warning=FALSE, cache=TRUE}
+```{r, warning=FALSE}
+#install.packages("randomForest")
+#install.packages("rpart")
 setwd("D:/Projects/training/DataScience Specilization Certificate/08.MachineLearning/CourseProject")
 training <- read.csv("pml-training.csv", na.strings=c("NA","#DIV/0!"))
 validation <- read.csv("pml-testing.csv", na.strings=c("NA","#DIV/0!"))
@@ -44,19 +46,19 @@ According to observation, common variables include:
 The remaining variables are measurements; There are 2 types of measurements:
 
 * Instance measurements
-```{r, warning=FALSE, cache=TRUE}
+```{r, warning=FALSE}
 commonVars <- grep("X|user_name|raw_timestamp_part_1|raw_timestamp_part_2|cvtd_timestamp|new_window|num_window|classe", varNames)
 measurementNames <- varNames[-commonVars]
 sumVars <- grep("amplitude_.*|avg_.*|kurtosis_.*|max_.*|min_.*|skewness_.*|stddev_.*|var_.*", measurementNames)
 sort(measurementNames[-sumVars])
 ```
 * Summarized measurements: is included in data set only when new_window = "yes"
-```{r, warning=FALSE, cache=TRUE}
+```{r, warning=FALSE}
 sort(measurementNames[sumVars])
 ```
 
 Because the test set does not contain summarized measurements, therefore we cannot include summarized measurements in buildig prediction model
-```{r, warning=FALSE, cache=FALSE}
+```{r, warning=FALSE}
 training <- training[,c("classe", "user_name", measurementNames[-sumVars])]
 #training <- training[,c("classe", measurementNames[-sumVars])]
 #Remove any column containing at least one NA value
@@ -68,7 +70,7 @@ dim(training)
 #Build prediction model
 
 Split training data set into training & testing sets
-```{r, warning=FALSE, cache=FALSE}
+```{r, warning=FALSE}
 library(caret)
 set.seed(543)
 inTrain <- createDataPartition(y=training$classe, p=0.8, list=FALSE)
@@ -80,20 +82,20 @@ dim(training)
 
 ## Prediction Tree
 Model training
-```{r, warning=FALSE, cache=FALSE}
+```{r, warning=FALSE}
 treeModel <- train(classe ~ ., data=training, method="rpart")
 library(rattle)
 fancyRpartPlot(treeModel$finalModel)
 ```
 
 Model Validation
-```{r, warning=FALSE, cache=FALSE}
+```{r, warning=FALSE}
 trainingPredict <- predict(treeModel, training)
 print(confusionMatrix(trainingPredict, training$classe))
 ```
 
 Cross validation
-```{r, warning=FALSE, cache=FALSE}
+```{r, warning=FALSE}
 testingPredict <- predict(treeModel, testing)
 print(confusionMatrix(testingPredict, testing$classe))
 ```
@@ -102,31 +104,32 @@ Cross validation accuracy of prediction tree model is 49.71% meaning error rate 
 
 ##Random Forest Model
 Model training
-```{r, warning=FALSE, cache=FALSE}
+```{r, warning=FALSE}
 library(randomForest)
+#rfModel <- train(classe ~ ., data=training, method="rf")
 rfModel <- randomForest(classe ~ ., data = training, importance = TRUE, ntrees = 10)
 summary(rfModel)
 ```
 
 Model Validation
-```{r, warning=FALSE, cache=FALSE}
+```{r, warning=FALSE}
 trainingPredict <- predict(rfModel, training)
 print(confusionMatrix(trainingPredict, training$classe))
 ```
 
 Cross validation
-```{r, warning=FALSE, cache=FALSE}
+```{r, warning=FALSE}
 testingPredict <- predict(rfModel, testing)
 print(confusionMatrix(testingPredict, testing$classe))
 ```
 
-Cross validation accuracy of prediction tree model is 99.54% meaning error rate is 0.46% which is still too high.
+Cross validation accuracy of prediction tree model is 99.54% meaning error rate is 0.46% which is quite good.
 
 #Out of sample error
-The highest accuracy in this report is based on prediction algorithm of Random Forest Model, its out of sample error is estimated as XXX% 
+The highest accuracy in this report is based on prediction algorithm of Random Forest Model, its out of sample error is estimated as 0.46%. 
 
 #Prediction for 20 test cases
-```{r, warning=FALSE, cache=FALSE}
+```{r, warning=FALSE}
 pml_write_files <- function(x){
   n = length(x)
   for(i in 1:n){
@@ -134,5 +137,7 @@ pml_write_files <- function(x){
     write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
   }
 }
-pml_write_files(predict(rfModel, validation))
+output <- predict(rfModel, validation)
+pml_write_files(output)
+print(output)
 ```
